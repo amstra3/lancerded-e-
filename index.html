@@ -1,0 +1,257 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Lancer de Dés</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      display: flex;
+      margin: 20px;
+    }
+    .sidebar {
+      width: 250px;
+      margin-right: 20px;
+      border-right: 2px solid #ddd;
+      padding-right: 20px;
+    }
+    .main-content {
+      flex-grow: 1;
+    }
+    .button {
+      padding: 10px 20px;
+      font-size: 16px;
+      cursor: pointer;
+      background-color: #4CAF50;
+      color: white;
+      border: none;
+      border-radius: 5px;
+      transition: background-color 0.3s ease;
+    }
+    .button:hover {
+      background-color: #45a049;
+    }
+    .result {
+      margin-top: 20px;
+      font-size: 20px;
+      color: #333;
+    }
+    .history {
+      margin-top: 30px;
+      padding: 10px;
+      border: 1px solid #ddd;
+    }
+    .history-item {
+      margin-bottom: 10px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      cursor: pointer;
+      color: #0066cc;
+      text-decoration: underline;
+    }
+    .modify-button {
+      background-color: #ffa500;
+      border: none;
+      color: white;
+      padding: 5px 10px;
+      cursor: pointer;
+      border-radius: 3px;
+      margin-left: 10px;
+    }
+    .input-section {
+      margin: 20px 0;
+    }
+    .input-section input {
+      margin: 5px;
+      padding: 5px;
+      font-size: 16px;
+    }
+  </style>
+</head>
+<body>
+  <div class="sidebar">
+    <h3>Lancers Enregistrés</h3>
+    <div id="history-content">
+      Aucune sauvegarde
+    </div>
+    <button class="button" onclick="exportLaunchHistory()">Exporter les lancers</button>
+    <!-- Bouton d'importation ajouté sans modifier l'interface -->
+    <input type="file" id="file-input" onchange="importLaunchHistory(event)" style="margin-top: 10px;">
+  </div>
+  <div class="main-content">
+    <h1>Lancer de Dés</h1>
+    <!-- Section pour le nom et le modificateur -->
+    <div class="input-section">
+      <label for="launch-name">Nom du lancer :</label>
+      <input type="text" id="launch-name" placeholder="Nom du lancer">
+      <br>
+      <label for="modifier">Modificateur global :</label>
+      <input type="text" id="modifier" placeholder="ex: +3, -2">
+    </div>
+    <!-- Section pour les dés -->
+    <div class="input-section">
+      <label for="4-count">Nombre de dés à 4 faces :</label>
+      <input type="number" id="4-count" min="0" value="0">
+      <label for="6-count">Nombre de dés à 6 faces :</label>
+      <input type="number" id="6-count" min="0" value="0">
+      <label for="8-count">Nombre de dés à 8 faces :</label>
+      <input type="number" id="8-count" min="0" value="0">
+      <label for="10-count">Nombre de dés à 10 faces :</label>
+      <input type="number" id="10-count" min="0" value="0">
+      <label for="12-count">Nombre de dés à 12 faces :</label>
+      <input type="number" id="12-count" min="0" value="0">
+      <label for="20-count">Nombre de dés à 20 faces :</label>
+      <input type="number" id="20-count" min="0" value="0">
+      <label for="100-count">Nombre de dés à 100 faces :</label>
+      <input type="number" id="100-count" min="0" value="0">
+    </div>
+    <!-- Bouton d'enregistrement -->
+    <button class="button" onclick="saveLauncher()">Enregistrer le lancer</button>
+    <!-- Affichage du résultat -->
+    <div class="result" id="result">Résultat : -</div>
+  </div>
+
+  <script>
+    // Tableau pour stocker les lancers en mémoire (pendant la session)
+    let launchHistory = [];
+    let currentEditIndex = null; // index du lancer en modification (null si pas en modification)
+
+    // Fonction qui applique le modificateur au total
+    function applyModifierToTotal(total, modifier) {
+      if (!modifier) return total;
+      let sign = modifier.charAt(0);
+      let num = parseInt(modifier.slice(1));
+      if (isNaN(num)) return total;
+      return sign === '+' ? total + num : sign === '-' ? total - num : total;
+    }
+
+    // Fonction pour lancer un dé à un nombre de faces donné
+    function rollSingleDice(sides) {
+      return Math.floor(Math.random() * sides) + 1;
+    }
+
+    // Fonction pour afficher le résultat d'un lancer
+    function displayResults(results, modifier) {
+      let total = 0;
+      results.forEach(({ sides, result }) => {
+        total += result;
+      });
+      total = applyModifierToTotal(total, modifier);
+      document.getElementById('result').innerHTML = `Résultat total : ${total}`;
+    }
+
+    // Fonction pour enregistrer ou mettre à jour un lancer
+    function saveLauncher() {
+      const name = document.getElementById('launch-name').value || 'Sans nom';
+      const modifier = document.getElementById('modifier').value;
+      const diceTypes = [4, 6, 8, 10, 12, 20, 100];
+      let selectedDice = [];
+      diceTypes.forEach(type => {
+        const count = parseInt(document.getElementById(`${type}-count`).value) || 0;
+        for (let i = 0; i < count; i++) {
+          selectedDice.push(type);
+        }
+      });
+      if (selectedDice.length === 0) {
+        alert("Veuillez sélectionner au moins un dé à lancer.");
+        return;
+      }
+      if (currentEditIndex !== null) {
+        // Mise à jour du lancer existant
+        launchHistory[currentEditIndex] = { name, diceUsed: selectedDice, modifier };
+        currentEditIndex = null;
+      } else {
+        // Ajout d'un nouveau lancer
+        launchHistory.push({ name, diceUsed: selectedDice, modifier });
+      }
+      updateSidebar();
+    }
+
+    // Fonction pour mettre à jour la barre latérale
+    function updateSidebar() {
+      const historyContent = document.getElementById('history-content');
+      historyContent.innerHTML = '';
+      launchHistory.forEach((launch, index) => {
+        const historyItem = document.createElement('div');
+        historyItem.classList.add('history-item');
+        historyItem.style.display = 'flex';
+        historyItem.style.justifyContent = 'space-between';
+        historyItem.style.alignItems = 'center';
+        historyItem.innerHTML = `<span>${launch.name} (${launch.diceUsed.length} dés)</span>`;
+        // Bouton de modification
+        const modifyButton = document.createElement('button');
+        modifyButton.classList.add('modify-button');
+        modifyButton.innerText = 'Modifier';
+        modifyButton.onclick = function(event) {
+          event.stopPropagation(); // Empêche la relance lors du clic sur "Modifier"
+          editLauncher(index);
+        };
+        historyItem.appendChild(modifyButton);
+        // Clic sur l'élément pour relancer le lancer
+        historyItem.onclick = function () {
+          relaunchDice(index);
+        };
+        historyContent.appendChild(historyItem);
+      });
+    }
+
+    // Fonction pour charger un lancer dans le formulaire pour modification
+    function editLauncher(index) {
+      const launch = launchHistory[index];
+      currentEditIndex = index;
+      document.getElementById('launch-name').value = launch.name;
+      document.getElementById('modifier').value = launch.modifier;
+      const diceTypes = [4, 6, 8, 10, 12, 20, 100];
+      diceTypes.forEach(type => {
+        const count = launch.diceUsed.filter(die => die === type).length;
+        document.getElementById(`${type}-count`).value = count;
+      });
+    }
+
+    // Fonction pour relancer les dés d'un lancer enregistré
+    function relaunchDice(index) {
+      const launch = launchHistory[index];
+      const modifier = launch.modifier;
+      let results = [];
+      launch.diceUsed.forEach(type => {
+        results.push({ sides: type, result: rollSingleDice(type) });
+      });
+      displayResults(results, modifier);
+    }
+
+    // Fonction pour exporter l'historique des lancers en JSON
+    function exportLaunchHistory() {
+      const blob = new Blob([JSON.stringify(launchHistory, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = 'lancers.json';
+      link.click();
+      URL.revokeObjectURL(url);
+    }
+
+    // Fonction pour importer l'historique des lancers depuis un fichier JSON
+    function importLaunchHistory(event) {
+      const file = event.target.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = function(e) {
+        try {
+          const data = JSON.parse(e.target.result);
+          if (Array.isArray(data)) {
+            launchHistory = data;
+            updateSidebar();
+          } else {
+            alert("Le fichier JSON est invalide.");
+          }
+        } catch (error) {
+          alert("Erreur lors du chargement du fichier JSON.");
+        }
+      };
+      reader.readAsText(file);
+    }
+  </script>
+</body>
+</html>
